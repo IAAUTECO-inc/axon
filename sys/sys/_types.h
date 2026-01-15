@@ -161,10 +161,7 @@ typedef	int		__cpulevel_t;	/* level parameter for cpuset. */
 typedef int		__cpusetid_t;	/* cpuset identifier. */
 typedef __int64_t	__daddr_t;	/* bwrite(3), FIOBMAP2, etc */
 
-#ifndef __has_feature
-#define __has_feature(x)        0
-#endif
-#if !__has_feature(capabilities)
+#ifndef __SIZEOF_INTCAP__
 /*
  * On non-CHERI systems, define __(u)intcap_t to __(u)intptr_t so that
  * hybrid-C code which needs to be explicitly aware of capabilities can
@@ -206,6 +203,10 @@ typedef	__uint_least32_t __char32_t;
 #if defined(__cplusplus) && __cplusplus >= 201103L
 #define	_CHAR16_T_DECLARED
 #define	_CHAR32_T_DECLARED
+#endif
+/* and so is char8_t in C++20 */
+#if defined(__cplusplus) && __cplusplus >= 202002L
+#define _CHAR8_T_DECLARED
 #endif
 
 typedef struct {

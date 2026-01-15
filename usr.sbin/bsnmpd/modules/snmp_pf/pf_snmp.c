@@ -673,7 +673,7 @@ pf_tables(struct snmp_context __unused *ctx, struct snmp_value *val,
 		return (SNMP_ERR_NOT_WRITEABLE);
 
 	if (op == SNMP_OP_GET) {
-		if ((time(NULL) - pft_table_age) > PFT_TABLE_MAXAGE)
+		if (! started || (time(NULL) - pft_table_age) > PFT_TABLE_MAXAGE)
 			if (pft_refresh() == -1)
 			    return (SNMP_ERR_GENERR);
 
@@ -812,7 +812,7 @@ pf_tbladdr(struct snmp_context __unused *ctx, struct snmp_value __unused *val,
 	asn_subid_t	which = val->var.subs[sub - 1];
 	struct pfa_entry *e = NULL;
 
-	if ((time(NULL) - pfa_table_age) > PFA_TABLE_MAXAGE)
+	if (! started || (time(NULL) - pfa_table_age) > PFA_TABLE_MAXAGE)
 		pfa_refresh();
 
 	switch (op) {
@@ -1035,7 +1035,7 @@ pf_lbltable(struct snmp_context __unused *ctx, struct snmp_value *val,
 	asn_subid_t	which = val->var.subs[sub - 1];
 	struct pfl_entry *e = NULL;
 
-	if ((time(NULL) - pfl_table_age) > PFL_TABLE_MAXAGE)
+	if (! started || (time(NULL) - pfl_table_age) > PFL_TABLE_MAXAGE)
 		pfl_refresh();
 
 	switch (op) {
@@ -1288,8 +1288,7 @@ pfs_refresh(void)
 	pfs = pfctl_get_status_h(pfh);
 
 	if (pfs == NULL) {
-		syslog(LOG_ERR, "pfs_refresh(): ioctl(): %s",
-		    strerror(errno));
+		syslog(LOG_ERR, "pfs_refresh(): pfctl_get_status failure");
 		return (-1);
 	}
 
@@ -1321,9 +1320,6 @@ pft_refresh(void)
 	struct pfr_table filter;
 	struct pft_entry *e;
 	int i, numtbls = 1;
-
-	if (started && this_tick <= pf_tick)
-		return (0);
 
 	while (!TAILQ_EMPTY(&pft_table)) {
 		e = TAILQ_FIRST(&pft_table);
@@ -1421,9 +1417,6 @@ pfa_refresh(void)
 	struct pfr_table *pt = NULL, *it = NULL;
 	struct pfa_entry *e;
 	int i, numtbls = 1, cidx, naddrs;
-
-	if (started && this_tick <= pf_tick)
-		return (0);
 
 	while (!TAILQ_EMPTY(&pfa_table)) {
 		e = TAILQ_FIRST(&pfa_table);
@@ -1589,9 +1582,6 @@ static int
 pfl_refresh(void)
 {
 	struct pfl_entry *e;
-
-	if (started && this_tick <= pf_tick)
-		return (0);
 
 	while (!TAILQ_EMPTY(&pfl_table)) {
 		e = TAILQ_FIRST(&pfl_table);

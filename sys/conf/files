@@ -844,6 +844,17 @@ dev/alpm/alpm.c			optional alpm pci
 dev/amdpm/amdpm.c		optional amdpm pci | nfpm pci
 dev/amdsmb/amdsmb.c		optional amdsmb pci
 #
+dev/aq/aq_main.c		optional aq
+dev/aq/aq_media.c		optional aq
+dev/aq/aq_irq.c			optional aq
+dev/aq/aq_ring.c		optional aq
+dev/aq/aq_hw.c			optional aq
+dev/aq/aq_hw_llh.c		optional aq
+dev/aq/aq_fw.c			optional aq
+dev/aq/aq_fw1x.c		optional aq
+dev/aq/aq_fw2x.c		optional aq
+dev/aq/aq_dbg.c			optional aq
+#
 dev/ata/ata_if.m		optional ata | atacore
 dev/ata/ata-all.c		optional ata | atacore
 dev/ata/ata-dma.c		optional ata | atacore
@@ -2571,6 +2582,7 @@ dev/nvme/nvme_sim.c		optional nvme scbus
 dev/nvme/nvme_sysctl.c		optional nvme
 dev/nvme/nvme_test.c		optional nvme
 dev/nvme/nvme_util.c		optional nvme | scbus
+dev/nvme/nvme_if.m		standard
 dev/nvmem/nvmem.c		optional nvmem fdt
 dev/nvmem/nvmem_if.m		optional nvmem
 dev/nvmf/controller/ctl_frontend_nvmf.c		optional nvmft
@@ -2865,6 +2877,10 @@ dev/regulator/regnode_if.m	optional regulator
 dev/regulator/regulator.c	optional regulator
 dev/regulator/regulator_bus.c	optional regulator fdt
 dev/regulator/regulator_fixed.c	optional regulator
+dev/rge/if_rge.c		optional rge
+dev/rge/if_rge_hw.c		optional rge
+dev/rge/if_rge_stats.c		optional rge
+dev/rge/if_rge_sysctl.c		optional rge
 dev/rl/if_rl.c			optional rl pci
 dev/rndtest/rndtest.c		optional rndtest
 #
@@ -3183,7 +3199,6 @@ dev/sound/pcm/feeder_volume.c	optional sound  \
 	dependency	"snd_fxdiv_gen.h"
 dev/sound/pcm/mixer.c		optional sound
 dev/sound/pcm/mixer_if.m	optional sound
-dev/sound/pcm/sndstat.c		optional sound
 dev/sound/pcm/sound.c		optional sound
 dev/sound/pcm/vchan.c		optional sound
 dev/sound/usb/uaudio.c		optional snd_uaudio usb
@@ -3192,6 +3207,7 @@ dev/sound/midi/midi.c		optional sound
 dev/sound/midi/mpu401.c		optional sound
 dev/sound/midi/mpu_if.m		optional sound
 dev/sound/midi/mpufoi_if.m	optional sound
+dev/sound/sndstat.c		optional sound
 dev/spibus/acpi_spibus.c	optional acpi spibus
 dev/spibus/ofw_spibus.c		optional fdt spibus
 dev/spibus/spibus.c		optional spibus				\
@@ -4184,6 +4200,7 @@ net/bpf_buffer.c		optional bpf
 net/bpf_jitter.c		optional bpf_jitter
 net/bpf_filter.c		optional bpf | netgraph_bpf
 net/bpf_zerocopy.c		optional bpf
+net/bpf_ifnet.c			optional bpf
 net/bridgestp.c			optional bridge | if_bridge
 net/dummymbuf.c			optional dummymbuf
 net/ieee8023ad_lacp.c		optional lagg
@@ -4686,6 +4703,8 @@ compat/linuxkpi/common/src/linux_schedule.c	optional compat_linuxkpi \
 compat/linuxkpi/common/src/linux_shmemfs.c	optional compat_linuxkpi \
 	compile-with "${LINUXKPI_C}"
 compat/linuxkpi/common/src/linux_shrinker.c	optional compat_linuxkpi \
+	compile-with "${LINUXKPI_C}"
+compat/linuxkpi/common/src/linux_siphash.c	optional compat_linuxkpi \
 	compile-with "${LINUXKPI_C}"
 compat/linuxkpi/common/src/linux_skbuff.c	optional compat_linuxkpi \
 	compile-with "${LINUXKPI_C}"

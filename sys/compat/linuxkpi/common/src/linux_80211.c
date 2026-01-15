@@ -282,7 +282,7 @@ lkpi_nl80211_sta_info_to_str(struct sbuf *s, const char *prefix,
 }
 
 static void
-lkpi_80211_dump_lvif_stas(struct lkpi_vif *lvif, struct sbuf *s)
+lkpi_80211_dump_lvif_stas(struct lkpi_vif *lvif, struct sbuf *s, bool dump_queues)
 {
 	struct lkpi_hw *lhw;
 	struct ieee80211_hw *hw;
@@ -292,6 +292,7 @@ lkpi_80211_dump_lvif_stas(struct lkpi_vif *lvif, struct sbuf *s)
 	struct ieee80211_sta *sta;
 	struct station_info sinfo;
 	int error;
+	uint8_t tid;
 
 	vif = LVIF_TO_VIF(lvif);
 	vap = LVIF_TO_VAP(lvif);
@@ -376,6 +377,39 @@ lkpi_80211_dump_lvif_stas(struct lkpi_vif *lvif, struct sbuf *s)
 		sbuf_printf(s, "         he_dcm %u he_gi %u he_ru_alloc %u eht_gi %u\n",
 		    sinfo.txrate.he_dcm, sinfo.txrate.he_gi, sinfo.txrate.he_ru_alloc,
 		    sinfo.txrate.eht_gi);
+
+		if (!dump_queues)
+			continue;
+
+		/* Dump queue information. */
+		sbuf_printf(s, " Queue information:\n");
+		sbuf_printf(s, "  frms direct tx %ju\n", lsta->frms_tx);
+		for (tid = 0; tid <= IEEE80211_NUM_TIDS; tid++) {
+			struct lkpi_txq *ltxq;
+
+			if (sta->txq[tid] == NULL) {
+				sbuf_printf(s, "  tid %-2u NOQ\n", tid);
+				continue;
+			}
+
+			ltxq = TXQ_TO_LTXQ(sta->txq[tid]);
+#ifdef __notyet__
+			sbuf_printf(s, "  tid %-2u flags: %b "
+			    "txq_generation %u skbq len %d\n",
+			    tid, ltxq->flags, LKPI_TXQ_FLAGS_BITS,
+			    ltxq->txq_generation,
+			    skb_queue_len_lockless(&ltxq->skbq));
+#else
+			sbuf_printf(s, "  tid %-2u "
+			    "txq_generation %u skbq len %d\n",
+			    tid,
+			    ltxq->txq_generation,
+			    skb_queue_len_lockless(&ltxq->skbq));
+#endif
+			sbuf_printf(s, "         frms_enqueued %ju frms_dequeued %ju "
+			    "frms_tx %ju\n",
+			    ltxq->frms_enqueued, ltxq->frms_dequeued, ltxq->frms_tx);
+		}
 	}
 	wiphy_unlock(hw->wiphy);
 }
@@ -393,7 +427,28 @@ lkpi_80211_dump_stas(SYSCTL_HANDLER_ARGS)
 
 	sbuf_new_for_sysctl(&s, NULL, 1024, req);
 
-	lkpi_80211_dump_lvif_stas(lvif, &s);
+	lkpi_80211_dump_lvif_stas(lvif, &s, false);
+
+	sbuf_finish(&s);
+	sbuf_delete(&s);
+
+	return (0);
+}
+
+static int
+lkpi_80211_dump_sta_queues(SYSCTL_HANDLER_ARGS)
+{
+	struct lkpi_vif *lvif;
+	struct sbuf s;
+
+	if (req->newptr)
+		return (EPERM);
+
+	lvif = (struct lkpi_vif *)arg1;
+
+	sbuf_new_for_sysctl(&s, NULL, 1024, req);
+
+	lkpi_80211_dump_lvif_stas(lvif, &s, true);
 
 	sbuf_finish(&s);
 	sbuf_delete(&s);
@@ -638,7 +693,8 @@ skip_bw:
 				sta = IEEE80211_VHT_MCS_NOT_SUPPORTED;
 			else {
 				sta = MIN(sta, card);
-				rx_nss = i + 1;
+				if (rx_nss == 0)
+					rx_nss = i + 1;
 			}
 		}
 		rx_map |= (sta << (2 * i));
@@ -1874,10 +1930,6 @@ lkpi_update_mcast_filter(struct ieee80211com *ic)
 
 	lhw = ic->ic_softc;
 
-	if (lhw->ops->prepare_multicast == NULL ||
-	    lhw->ops->configure_filter == NULL)
-		return;
-
 	LKPI_80211_LHW_SCAN_LOCK(lhw);
 	scanning = (lhw->scan_flags & LKPI_LHW_SCAN_RUNNING) != 0;
 	LKPI_80211_LHW_SCAN_UNLOCK(lhw);
@@ -1887,7 +1939,8 @@ lkpi_update_mcast_filter(struct ieee80211com *ic)
 	flags = 0;
 	if (scanning)
 		flags |= FIF_BCN_PRBRESP_PROMISC;
-	if (lhw->mc_all_multi)
+	/* The latter condition may not be as expected but seems wise. */
+	if (lhw->mc_all_multi || lhw->ops->prepare_multicast == NULL)
 		flags |= FIF_ALLMULTI;
 
 	hw = LHW_TO_HW(lhw);
@@ -4176,6 +4229,11 @@ lkpi_ic_vap_create(struct ieee80211com *ic, const char name[IFNAMSIZ],
 	    SYSCTL_CHILDREN(node), OID_AUTO, "dump_stas",
 	    CTLTYPE_STRING | CTLFLAG_RD | CTLFLAG_MPSAFE, lvif, 0,
 	    lkpi_80211_dump_stas, "A", "Dump sta statistics of this vif");
+	SYSCTL_ADD_PROC(&lvif->sysctl_ctx,
+	    SYSCTL_CHILDREN(node), OID_AUTO, "dump_stas_queues",
+	    CTLTYPE_STRING | CTLFLAG_RD | CTLFLAG_MPSAFE | CTLFLAG_SKIP, lvif, 0,
+	    lkpi_80211_dump_sta_queues, "A",
+	    "Dump queue statistics for any sta of this vif");
 
 	IMPROVE();
 
@@ -4246,9 +4304,6 @@ lkpi_ic_update_mcast(struct ieee80211com *ic)
 	struct lkpi_hw *lhw;
 
 	lhw = ic->ic_softc;
-	if (lhw->ops->prepare_multicast == NULL ||
-	    lhw->ops->configure_filter == NULL)
-		return;
 
 	LKPI_80211_LHW_MC_LOCK(lhw);
 	/* Cleanup anything on the current list. */
@@ -5519,6 +5574,8 @@ lkpi_80211_txq_tx_one(struct lkpi_sta *lsta, struct mbuf *m)
 #endif
 
 	ni = lsta->ni;
+	ieee80211_output_seqno_assign(ni, -1, m);
+
 	k = NULL;
 	keyix = IEEE80211_KEYIX_NONE;
 	wh = mtod(m, struct ieee80211_frame *);
@@ -5673,6 +5730,8 @@ lkpi_80211_txq_tx_one(struct lkpi_sta *lsta, struct mbuf *m)
 			dev_kfree_skb(skb);
 			return;
 		}
+		/* Reset header as data might have moved. */
+		hdr = (void *)skb->data;
 	}
 #endif
 
@@ -5696,6 +5755,7 @@ lkpi_80211_txq_tx_one(struct lkpi_sta *lsta, struct mbuf *m)
 
 	LKPI_80211_LTXQ_LOCK(ltxq);
 	skb_queue_tail(&ltxq->skbq, skb);
+	ltxq->frms_enqueued++;
 #ifdef LINUXKPI_DEBUG_80211
 	if (linuxkpi_debug_80211 & D80211_TRACE_TX)
 		printf("%s:%d mo_wake_tx_queue :: %d %lu lsta %p sta %p "
@@ -5725,6 +5785,7 @@ ops_tx:
 	control.sta = sta;
 	wiphy_lock(hw->wiphy);
 	lkpi_80211_mo_tx(hw, &control, skb);
+	lsta->frms_tx++;
 	wiphy_unlock(hw->wiphy);
 }
 
@@ -6472,8 +6533,9 @@ linuxkpi_ieee80211_alloc_hw(size_t priv_len, const struct ieee80211_ops *ops)
 	TAILQ_INIT(&lhw->lvif_head);
 	__hw_addr_init(&lhw->mc_list);
 	for (ac = 0; ac < IEEE80211_NUM_ACS; ac++) {
+		spin_lock_init(&lhw->txq_scheduled_lock[ac]);
 		lhw->txq_generation[ac] = 1;
-		TAILQ_INIT(&lhw->scheduled_txqs[ac]);
+		TAILQ_INIT(&lhw->txq_scheduled[ac]);
 	}
 
 	/* Chanctx_conf */
@@ -6507,6 +6569,7 @@ linuxkpi_ieee80211_iffree(struct ieee80211_hw *hw)
 {
 	struct lkpi_hw *lhw;
 	struct mbuf *m;
+	int ac;
 
 	lhw = HW_TO_LHW(hw);
 	free(lhw->ic, M_LKPI80211);
@@ -6570,6 +6633,9 @@ linuxkpi_ieee80211_iffree(struct ieee80211_hw *hw)
 	LKPI_80211_LHW_MC_LOCK(lhw);
 	lkpi_cleanup_mcast_list_locked(lhw);
 	LKPI_80211_LHW_MC_UNLOCK(lhw);
+
+	for (ac = 0; ac < IEEE80211_NUM_ACS; ac++)
+		spin_lock_destroy(&lhw->txq_scheduled_lock[ac]);
 
 	/* Cleanup more of lhw here or in wiphy_free()? */
 	spin_lock_destroy(&lhw->txq_lock);
@@ -8122,6 +8188,8 @@ linuxkpi_ieee80211_tx_dequeue(struct ieee80211_hw *hw,
 
 	LKPI_80211_LTXQ_LOCK(ltxq);
 	skb = skb_dequeue(&ltxq->skbq);
+	if (skb != NULL)
+		ltxq->frms_dequeued++;
 	LKPI_80211_LTXQ_UNLOCK(ltxq);
 
 stopped:
@@ -8664,7 +8732,12 @@ linuxkpi_ieee80211_wake_queue(struct ieee80211_hw *hw, int qnum)
 	spin_unlock_irqrestore(&lhw->txq_lock, flags);
 }
 
+/* -------------------------------------------------------------------------- */
+
 /* This is just hardware queues. */
+/*
+ * Being called from the driver thus use _bh() locking.
+ */
 void
 linuxkpi_ieee80211_txq_schedule_start(struct ieee80211_hw *hw, uint8_t ac)
 {
@@ -8672,10 +8745,16 @@ linuxkpi_ieee80211_txq_schedule_start(struct ieee80211_hw *hw, uint8_t ac)
 
 	lhw = HW_TO_LHW(hw);
 
-	IMPROVE_TXQ("Are there reasons why we wouldn't schedule?");
-	IMPROVE_TXQ("LOCKING");
+	if (ac >= IEEE80211_NUM_ACS) {
+		ic_printf(lhw->ic, "%s: ac %u out of bounds.\n", __func__, ac);
+		return;
+	}
+
+	spin_lock_bh(&lhw->txq_scheduled_lock[ac]);
+	IMPROVE("check AIRTIME_FAIRNESS");
 	if (++lhw->txq_generation[ac] == 0)
 		lhw->txq_generation[ac]++;
+	spin_unlock_bh(&lhw->txq_scheduled_lock[ac]);
 }
 
 struct ieee80211_txq *
@@ -8688,24 +8767,33 @@ linuxkpi_ieee80211_next_txq(struct ieee80211_hw *hw, uint8_t ac)
 	lhw = HW_TO_LHW(hw);
 	txq = NULL;
 
-	IMPROVE_TXQ("LOCKING");
+	if (ac >= IEEE80211_NUM_ACS) {
+		ic_printf(lhw->ic, "%s: ac %u out of bounds.\n", __func__, ac);
+		return (NULL);
+	}
+
+	spin_lock_bh(&lhw->txq_scheduled_lock[ac]);
 
 	/* Check that we are scheduled. */
 	if (lhw->txq_generation[ac] == 0)
 		goto out;
 
-	ltxq = TAILQ_FIRST(&lhw->scheduled_txqs[ac]);
+	ltxq = TAILQ_FIRST(&lhw->txq_scheduled[ac]);
 	if (ltxq == NULL)
 		goto out;
 	if (ltxq->txq_generation == lhw->txq_generation[ac])
 		goto out;
 
+	IMPROVE("check AIRTIME_FAIRNESS");
+
+	TAILQ_REMOVE(&lhw->txq_scheduled[ac], ltxq, txq_entry);
 	ltxq->txq_generation = lhw->txq_generation[ac];
-	TAILQ_REMOVE(&lhw->scheduled_txqs[ac], ltxq, txq_entry);
 	txq = &ltxq->txq;
 	TAILQ_ELEM_INIT(ltxq, txq_entry);
 
 out:
+	spin_unlock_bh(&lhw->txq_scheduled_lock[ac]);
+
 	return (txq);
 }
 
@@ -8718,8 +8806,6 @@ void linuxkpi_ieee80211_schedule_txq(struct ieee80211_hw *hw,
 
 	ltxq = TXQ_TO_LTXQ(txq);
 
-	IMPROVE_TXQ("LOCKING");
-
 	/* Only schedule if work to do or asked to anyway. */
 	LKPI_80211_LTXQ_LOCK(ltxq);
 	ltxq_empty = skb_queue_empty(&ltxq->skbq);
@@ -8727,37 +8813,46 @@ void linuxkpi_ieee80211_schedule_txq(struct ieee80211_hw *hw,
 	if (!withoutpkts && ltxq_empty)
 		goto out;
 
+	lhw = HW_TO_LHW(hw);
+	spin_lock_bh(&lhw->txq_scheduled_lock[txq->ac]);
 	/*
 	 * Make sure we do not double-schedule. We do this by checking tqe_prev,
 	 * the previous entry in our tailq. tqe_prev is always valid if this entry
 	 * is queued, tqe_next may be NULL if this is the only element in the list.
 	 */
 	if (ltxq->txq_entry.tqe_prev != NULL)
-		goto out;
+		goto unlock;
 
-	lhw = HW_TO_LHW(hw);
-	TAILQ_INSERT_TAIL(&lhw->scheduled_txqs[txq->ac], ltxq, txq_entry);
+	TAILQ_INSERT_TAIL(&lhw->txq_scheduled[txq->ac], ltxq, txq_entry);
+unlock:
+	spin_unlock_bh(&lhw->txq_scheduled_lock[txq->ac]);
+
 out:
 	return;
 }
+
+/* -------------------------------------------------------------------------- */
 
 void
 linuxkpi_ieee80211_handle_wake_tx_queue(struct ieee80211_hw *hw,
     struct ieee80211_txq *txq)
 {
 	struct lkpi_hw *lhw;
-	struct ieee80211_txq *ntxq;
-	struct ieee80211_tx_control control;
-        struct sk_buff *skb;
 
 	lhw = HW_TO_LHW(hw);
 
 	LKPI_80211_LHW_TXQ_LOCK(lhw);
 	ieee80211_txq_schedule_start(hw, txq->ac);
 	do {
+		struct lkpi_txq *ltxq;
+		struct ieee80211_txq *ntxq;
+		struct ieee80211_tx_control control;
+		struct sk_buff *skb;
+
 		ntxq = ieee80211_next_txq(hw, txq->ac);
 		if (ntxq == NULL)
 			break;
+		ltxq = TXQ_TO_LTXQ(ntxq);
 
 		memset(&control, 0, sizeof(control));
 		control.sta = ntxq->sta;
@@ -8765,6 +8860,7 @@ linuxkpi_ieee80211_handle_wake_tx_queue(struct ieee80211_hw *hw,
 			skb = linuxkpi_ieee80211_tx_dequeue(hw, ntxq);
 			if (skb == NULL)
 				break;
+			ltxq->frms_tx++;
 			lkpi_80211_mo_tx(hw, &control, skb);
 		} while(1);
 

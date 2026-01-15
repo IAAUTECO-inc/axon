@@ -35,7 +35,6 @@
 #include "opt_inet.h"
 #include "opt_inet6.h"
 #include "opt_ipsec.h"
-#include "opt_rss.h"
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -71,6 +70,7 @@
 #include <netinet/ip.h>
 #include <netinet/in_var.h>
 #include <netinet/in_pcb.h>
+#include <netinet/in_rss.h>
 #include <netinet/ip_var.h>
 #include <netinet/ip_options.h>
 #ifdef INET6
@@ -79,6 +79,7 @@
 #include <netinet6/nd6.h>
 #include <netinet6/ip6_var.h>
 #include <netinet6/in6_pcb.h>
+#include <netinet6/in6_rss.h>
 #endif
 #include <netinet/tcp.h>
 #include <netinet/tcp_fastopen.h>
@@ -880,7 +881,6 @@ syncache_socket(struct syncache *sc, struct socket *lso, struct mbuf *m)
 	if (sc->sc_flowtype != M_HASHTYPE_NONE) {
 		inp->inp_flowid = sc->sc_flowid;
 		inp->inp_flowtype = sc->sc_flowtype;
-#ifdef	RSS
 	} else {
 		  /* assign flowid by software RSS hash */
 #ifdef INET6
@@ -895,6 +895,7 @@ syncache_socket(struct syncache *sc, struct socket *lso, struct mbuf *m)
 		  } else
 #endif	/* INET6 */
 		  {
+#ifdef INET
 			rss_proto_software_hash_v4(inp->inp_faddr,
 						   inp->inp_laddr,
 						   inp->inp_fport,
@@ -902,8 +903,8 @@ syncache_socket(struct syncache *sc, struct socket *lso, struct mbuf *m)
 						   IPPROTO_TCP,
 						   &inp->inp_flowid,
 						   &inp->inp_flowtype);
+#endif /* INET */
 		  }
-#endif	/* RSS */
 	}
 #ifdef NUMA
 	inp->inp_numa_domain = sc->sc_numa_domain;
