@@ -1,0 +1,15 @@
+IA_AUT_ECO hub-os-core
+Copyright (c) 2026 IA_AUT_ECO Labs contact@iaauteco.ovh
+
+1. PROVENANCE
+This software is a downstream work based on [NOM_BASE, ex: The FreeBSD Project].
+Original source code and documentation have been preserved and moved 
+to [README.UPSTREAM / README.BASE].
+
+2. INTELLECTUAL PROPERTY
+All modifications, proprietary security modules, and IA_AUT_ECO specific 
+agents are the exclusive property of IA_AUT_ECO Labs.
+
+3. COMPLIANCE
+This project is OpenChain (ISO/IEC 5230:2020) compliant. 
+The software supply chain has been audited for license transparency.
