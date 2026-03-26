@@ -1,17 +1,31 @@
-# Hub OS: Secure Institutional Gateway
+# AXON: Sovereign Orchestration Core for Autonomous Systems
 
-## 1. Mission
-**Hub OS** is the sovereign operating system for institutional gateway nodes. It ensures the secure orchestration of data flows between Edge agents and the Ivarsread analytics server.
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Status: Critical Infrastructure Grade](https://img.shields.io/badge/Status-Resilient-green.svg)](#)
 
-## 2. Core Features
-* **Fort Graymor Integration:** Native mTLS and Post-Quantum Cryptography (PQC) communication stack.
-* **Zero-Knowledge Proxy:** Data relay without local unencrypted storage of sensitive health data.
-* **Institutional Resilience:** Hardened networking stack for NIS2 compliance.
+## Executive Summary
+**AXON** is a high-resilience, open-source orchestration framework designed to bridge advanced cognitive models (LLM/VLM) with complex robotic execution layers. Acting as the "digital nervous system" of autonomous entities, AXON provides a secure, audited environment for deploying AI-driven mobility and autonomy solutions. 
 
-## 3. Architecture & Provenance
-Hub OS is a specialized deployment environment optimized for institutional trust. 
-* **Base System:** [Nom de la base, ex: FreeBSD Minimal / Debian Hardened].
-* **Gateway Layers:** IA_AUT_ECO Labs.
+The project is built on two strategic pillars: **Technical Sovereignty**, ensuring independence from proprietary black-box ecosystems, and **Social AI**, focusing on the ethical enhancement of human autonomy through inclusive robotics.
 
-## 4. OpenChain Governance
-This project follows the OpenChain (ISO/IEC 5230) supply chain standard. Documentation for the upstream base system is preserved in `README.BASE`.
+## Core Architecture Principles
+The AXON architecture is governed by three non-negotiable principles:
+* **Decoupled Interoperability:** Strict separation between the reasoning engine and the Hardware Abstraction Layer (HAL) to prevent vendor lock-in.
+* **Deterministic Latency:** High-performance processing pipelines ensuring that cognitive intentions are translated into robotic actions with sub-millisecond predictability.
+* **Security by Design:** A minimal attack surface with integrated telemetry, designed for operation in critical and sensitive environments.
+
+## Compliance & Sovereignty
+AXON is engineered to align with European institutional standards, including the **EU AI Act** and **GDPR** frameworks. By utilizing open-source infrastructures and transparent governance-aware system design, it ensures that critical decision-making processes remain accountable, auditable, and sovereign.
+
+## Quick Start & Installation
+1.  **Environment:** Requires Python 3.10+ and C++17 build tools.
+2.  **Setup:** ```bash
+    git clone [https://github.com/](https://github.com/)[YOUR-ORG]/axon.git
+    cd axon
+    pip install -e .
+    ```
+3.  **Deployment:** Configure your execution nodes in `config/axon_manifest.yaml`.
+4.  **Sovereign Mode:** Launch the orchestrator with `python -m axon.core --mode secure`.
+
+## Contribution Guidelines
+We welcome contributions that adhere to the highest standards of code excellence. All pull requests must include modular unit tests and maintain strict compliance with our security headers. See `CONTRIBUTING.md` for more details.
