@@ -1,7 +1,7 @@
 /*-
- * Copyright (c) 2004 David Schultz <das@FreeBSD.ORG>
- * Copyright (c) 2013 Andrew Turner <andrew@FreeBSD.ORG>
- * All rights reserved.
+ * SPDX-License-Identifier: BSD-2-Clause
+ *
+ * Copyright © 2025 Amazon.com, Inc. or its affiliates.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,35 +25,11 @@
  * SUCH DAMAGE.
  */
 
-#define	__fenv_static
-#include "fenv.h"
+#ifndef _X86_BHYVE_H_
+#define	_X86_BHYVE_H_
 
-/*
- * Hopefully the system ID byte is immutable, so it's valid to use
- * this as a default environment.
- */
-const fenv_t __fe_dfl_env = 0;
+/* Bhyve feature detection */
+#define CPUID_BHYVE_FEATURES		0x40000001
+#define CPUID_BHYVE_FEAT_EXT_DEST_ID	(1UL << 0) /* MSI Extended Dest ID */
 
-#ifdef __GNUC_GNU_INLINE__
-#error "This file must be compiled with C99 'inline' semantics"
 #endif
-
-int
-(feclearexcept)(int excepts)
-{
-	return (__feclearexcept_int(excepts));
-}
-
-extern inline int fegetexceptflag(fexcept_t *__flagp, int __excepts);
-extern inline int fesetexceptflag(const fexcept_t *__flagp, int __excepts);
-extern inline int feraiseexcept(int __excepts);
-extern inline int fetestexcept(int __excepts);
-extern inline int fegetround(void);
-extern inline int fesetround(int __round);
-extern inline int fegetenv(fenv_t *__envp);
-extern inline int feholdexcept(fenv_t *__envp);
-extern inline int fesetenv(const fenv_t *__envp);
-extern inline int feupdateenv(const fenv_t *__envp);
-extern inline int feenableexcept(int __mask);
-extern inline int fedisableexcept(int __mask);
-extern inline int fegetexcept(void);
